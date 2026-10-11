@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>聊天室 · PC版</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+    body { font-family: 'Inter', sans-serif; height: 100vh; overflow: hidden; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); transition: background 0.3s; }
+    .custom-scroll::-webkit-scrollbar { width: 6px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    .message-enter { animation: slideInUp 0.3s ease-out forwards; }
+    @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .glass-panel { background: rgba(255,255,255,0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.5); transition: background 0.3s; }
+    .status-dot { animation: pulse-green 2s infinite; }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } 100% { box-shadow: 0 0 0 0 rgba(16,185,129,0); } }
+    .group-item:hover .group-actions { opacity: 1; }
+    .group-actions { opacity: 0; transition: opacity 0.2s; }
+    .member-item:hover .member-actions { opacity: 1; }
+    .member-actions { opacity: 0; transition: opacity 0.2s; }
+    .modal { animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .msg-bubble:hover .recall-btn { opacity: 1; }
+    .recall-btn { opacity: 0; transition: opacity 0.15s; }
+    .recalled-text { font-style: italic; opacity: 0.65; }
+    .admin-tab { cursor: pointer; padding: 8px 16px; border-bottom: 2px solid transparent; color: #6b7280; }
+    .admin-tab.active { border-bottom-color: #4f46e5; color: #4f46e5; font-weight: 600; }
+    :root { --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); --panel-bg: rgba(255,255,255,0.95); --text-main: #1f2937; --border-color: rgba(255,255,255,0.5); }
+    body.theme-dark { --bg-gradient: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); --panel-bg: rgba(30,41,59,0.95); --text-main: #f1f5f9; --border-color: rgba(71,85,105,0.5); }
+    body { background: var(--bg-gradient) !important; color: var(--text-main); }
+    .glass-panel { background: var(--panel-bg) !important; border-color: var(--border-color) !important; }
+    body.theme-dark .bg-white { background: #1e293b !important; }
+    body.theme-dark .bg-white\/80 { background: rgba(30,41,59,0.8) !important; }
+    body.theme-dark .bg-gray-50 { background: #0f172a !important; }
+    body.theme-dark .bg-gray-100 { background: #1e293b !important; }
+    body.theme-dark .bg-slate-50\/30 { background: rgba(15,23,42,0.3) !important; }
+    body.theme-dark .text-gray-800, body.theme-dark .text-gray-900 { color: #f1f5f9 !important; }
+    body.theme-dark .text-gray-700 { color: #cbd5e1 !important; }
+    body.theme-dark .text-gray-600, body.theme-dark .text-gray-500 { color: #94a3b8 !important; }
+    body.theme-dark .border-gray-100, body.theme-dark .border-gray-200 { border-color: #334155 !important; }
+    body.theme-dark input, body.theme-dark textarea { background: #0f172a !important; color: #f1f5f9 !important; border-color: #334155 !important; }
+</style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+<div id="authModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8">
+        <div class="text-center mb-8">
+            <h2 class="text-2xl font-bold text-gray-800">欢迎加入</h2>
+            <p class="text-gray-500 text-sm mt-2">安全、稳定的聊天环境</p>
+        </div>
+        <form id="loginForm" class="space-y-4">
+            <input type="text" id="loginUsername" required placeholder="用户名" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            <input type="password" id="loginPassword" required placeholder="密码" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 font-medium shadow-md">登录</button>
+            <p class="text-center text-sm text-gray-500">还没有账号？<a href="#" onclick="app.toggleAuthMode();return false;" class="text-indigo-600 ml-1">立即注册</a></p>
+        </form>
+        <form id="registerForm" class="space-y-4 hidden">
+            <input type="text" id="regUsername" required pattern="[a-zA-Z0-9_]{3,15}" placeholder="用户名（3-15位）" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            <input type="password" id="regPassword" required minlength="6" placeholder="密码（≥6位）" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+            <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-medium shadow-md">注册并登录</button>
+            <p class="text-center text-sm text-gray-500">已有账号？<a href="#" onclick="app.toggleAuthMode();return false;" class="text-indigo-600 ml-1">返回登录</a></p>
+        </form>
+    </div>
+</div>
+
+<div id="mainApp" class="w-full max-w-6xl h-[90vh] flex gap-6 hidden">
+    <aside class="w-80 glass-panel rounded-2xl shadow-xl flex flex-col overflow-hidden flex-shrink-0">
+        <div class="p-6 bg-gradient-to-r from-indigo-600 to-purple-600 text-white">
+            <div class="flex items-center justify-between mb-4">
+                <h1 class="text-xl font-bold"><i class="fas fa-users mr-2"></i>群聊中心</h1>
+                <div class="flex items-center gap-2">
+                    <span id="adminBadge" class="hidden text-[10px] bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded font-bold">超管</span>
+                    <button onclick="app.toggleTheme()" class="text-xs bg-white/20 px-2 py-1 rounded"><i class="fas fa-adjust"></i></button>
+                    <button id="adminPanelBtn" onclick="app.showAdminPanel()" class="hidden text-xs bg-white/20 px-2 py-1 rounded"><i class="fas fa-shield-alt"></i></button>
+                    <button onclick="app.showSettingsModal()" class="text-xs bg-white/20 px-2 py-1 rounded"><i class="fas fa-cog"></i></button>
+                    <button onclick="app.logout()" class="text-xs bg-white/20 px-2 py-1 rounded">退出</button>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <div class="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-xl font-bold border-2 border-white/50" id="userAvatar">U</div>
+                <div>
+                    <p class="font-semibold" id="displayUsername">User</p>
+                    <p class="text-xs text-indigo-100 opacity-80" id="muteStatus">在线中</p>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scroll p-4">
+            <div class="flex items-center justify-between mb-3 text-gray-500 text-sm font-medium">
+                <span>我的群组</span>
+                <button onclick="app.showCreateGroupModal()" class="hover:text-indigo-600"><i class="fas fa-plus-circle"></i></button>
+            </div>
+            <ul id="groupList" class="space-y-2 mb-6"></ul>
+            <div class="flex items-center justify-between mb-3 text-gray-500 text-sm font-medium">
+                <span>群成员 (<span id="memberCount">0</span>)</span>
+                <div class="flex gap-2">
+                    <button onclick="app.showManageMembersModal()" class="hover:text-indigo-600"><i class="fas fa-user-plus"></i></button>
+                    <button id="clearMsgBtn" onclick="app.clearMessages()" class="hover:text-red-600 hidden"><i class="fas fa-broom"></i></button>
+                    <button onclick="app.showAllUsersModal()" class="hover:text-indigo-600"><i class="fas fa-users-cog"></i></button>
+                </div>
+            </div>
+            <ul id="memberList" class="space-y-2"></ul>
+        </div>
+        <div class="p-4 border-t border-gray-100 bg-white/50">
+            <div class="flex items-center justify-between">
+                <div class="flex gap-2">
+                    <button id="leaveGroupBtn" onclick="app.leaveGroup()" class="hidden text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded"><i class="fas fa-sign-out-alt mr-1"></i>退出群聊</button>
+                    <button id="dismissGroupBtn" onclick="app.dismissGroup()" class="hidden text-xs text-red-600 bg-red-50 px-2 py-1 rounded"><i class="fas fa-trash-alt mr-1"></i>解散群聊</button>
+                </div>
+                <button id="clearAllBtn" onclick="app.clearAllData()" class="hidden text-xs text-red-600 bg-red-50 px-2 py-1 rounded"><i class="fas fa-database mr-1"></i>清空全部</button>
+            </div>
+        </div>
+    </aside>
+
+    <main class="flex-1 glass-panel rounded-2xl shadow-xl flex flex-col overflow-hidden">
+        <header class="h-16 border-b border-gray-100 flex items-center justify-between px-6 bg-white/80 backdrop-blur-sm">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600"><i class="fas fa-comments"></i></div>
+                <div>
+                    <h2 class="font-bold text-gray-800" id="chatTitle">公共频道</h2>
+                    <p class="text-xs text-gray-500" id="groupSubtitle">实时通信</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span id="muteBadge" class="hidden text-xs bg-red-100 text-red-600 px-2 py-1 rounded"><i class="fas fa-microphone-slash"></i> 已禁言</span>
+                <span id="pollingStatus" class="text-xs text-gray-400 flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-green-500 status-dot"></span> 已连接
+                </span>
+            </div>
+        </header>
+        <div id="chatContainer" class="flex-1 overflow-y-auto custom-scroll p-6 space-y-4 bg-slate-50/30"></div>
+        <div class="p-4 bg-white border-t border-gray-100">
+            <form id="messageForm" class="flex items-end gap-3 bg-gray-50 p-2 rounded-xl border border-gray-200">
+                <textarea id="messageInput" rows="1" placeholder="输入消息..." class="flex-1 bg-transparent border-none focus:ring-0 text-gray-700 resize-none py-2 max-h-32 custom-scroll outline-none"></textarea>
+                <button type="submit" id="sendBtn" class="p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-md"><i class="fas fa-paper-plane"></i></button>
+            </form>
+        </div>
+    </main>
+</div>
+
+<div id="createGroupModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal">
+        <h3 class="text-lg font-bold mb-4">创建新群组</h3>
+        <input type="text" id="newGroupName" placeholder="群组名称" class="w-full px-4 py-2 border rounded-lg mb-4 outline-none">
+        <div class="flex justify-end gap-3">
+            <button onclick="app.hideCreateGroupModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+            <button onclick="app.createGroup()" class="px-4 py-2 bg-indigo-600 text-white rounded-lg">创建</button>
+        </div>
+    </div>
+</div>
+
+<div id="manageMembersModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal">
+        <h3 class="text-lg font-bold mb-4">邀请成员</h3>
+        <div class="flex gap-2">
+            <input type="text" id="inviteUserId" placeholder="输入用户名" class="flex-1 px-4 py-2 border rounded-lg outline-none">
+            <button onclick="app.inviteMember()" class="px-4 py-2 bg-green-600 text-white rounded-lg">邀请</button>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="app.hideManageMembersModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div id="settingsModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 modal max-h-[85vh] overflow-y-auto custom-scroll">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-lg font-bold"><i class="fas fa-cog mr-2 text-indigo-600"></i>设置</h3>
+            <button onclick="app.hideSettingsModal()" class="text-gray-400"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="mb-6">
+            <h4 class="text-sm font-semibold text-gray-600 mb-3">隐私设置</h4>
+            <div class="bg-gray-50 rounded-lg p-4">
+                <label class="flex items-center justify-between cursor-pointer">
+                    <div>
+                        <p class="font-medium text-sm">允许任何人拉我入群</p>
+                        <p class="text-xs text-gray-500 mt-0.5">关闭后仅官方群可邀请</p>
+                    </div>
+                    <input type="checkbox" id="prefAllowInvite" class="w-5 h-5" onchange="app.toggleInvitePref()">
+                </label>
+            </div>
+        </div>
+        <div class="mb-6">
+            <h4 class="text-sm font-semibold text-gray-600 mb-3">修改密码</h4>
+            <div class="space-y-3">
+                <input type="password" id="oldPassword" placeholder="原密码" class="w-full px-4 py-2 border rounded-lg text-sm outline-none">
+                <input type="password" id="newPassword" placeholder="新密码（≥6位）" class="w-full px-4 py-2 border rounded-lg text-sm outline-none">
+                <input type="password" id="confirmPassword" placeholder="确认新密码" class="w-full px-4 py-2 border rounded-lg text-sm outline-none">
+                <button onclick="app.changePassword()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm">确认修改</button>
+            </div>
+        </div>
+        <div>
+            <h4 class="text-sm font-semibold text-red-600 mb-3">危险操作</h4>
+            <div class="bg-red-50 rounded-lg p-4 border border-red-100">
+                <p class="text-sm text-red-700 mb-3">注销账户将永久删除所有数据。</p>
+                <div class="flex gap-2">
+                    <input type="password" id="deletePassword" placeholder="输入密码" class="flex-1 px-4 py-2 border border-red-200 rounded-lg text-sm outline-none">
+                    <button onclick="app.deleteAccount()" class="px-4 py-2 bg-red-600 text-white rounded-lg text-sm"><i class="fas fa-user-times mr-1"></i>注销</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="allUsersModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold"><i class="fas fa-users mr-2 text-indigo-600"></i>所有用户 (<span id="totalUsers">0</span>)</h3>
+            <button onclick="app.hideAllUsersModal()" class="text-gray-400"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto custom-scroll"><ul id="allUsersList" class="space-y-2"></ul></div>
+    </div>
+</div>
+
+<div id="muteModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal">
+        <h3 class="text-lg font-bold mb-4">禁言 <span id="muteTargetName" class="text-red-600"></span></h3>
+        <div class="grid grid-cols-2 gap-2">
+            <button onclick="app.doMute(60)" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">1分钟</button>
+            <button onclick="app.doMute(300)" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">5分钟</button>
+            <button onclick="app.doMute(1800)" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">30分钟</button>
+            <button onclick="app.doMute(3600)" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">1小时</button>
+            <button onclick="app.doMute(86400)" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">1天</button>
+            <button onclick="app.doMute(604800)" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm">7天</button>
+        </div>
+        <div class="flex justify-end mt-4">
+            <button onclick="app.hideMuteModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+        </div>
+    </div>
+</div>
+
+<div id="adminPanelModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl p-6 modal max-h-[88vh] flex flex-col">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold"><i class="fas fa-shield-alt mr-2 text-red-600"></i>后台管理</h3>
+            <button onclick="app.hideAdminPanel()" class="text-gray-400"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="flex border-b border-gray-200 mb-4">
+            <div class="admin-tab active" data-tab="stats" onclick="app.switchAdminTab('stats')">统计</div>
+            <div class="admin-tab" data-tab="users" onclick="app.switchAdminTab('users')">用户管理</div>
+            <div class="admin-tab" data-tab="groups" onclick="app.switchAdminTab('groups')">群聊管理</div>
+        </div>
+        <div id="adminTabStats" class="flex-1 overflow-y-auto custom-scroll">
+            <div class="grid grid-cols-3 gap-3">
+                <div class="bg-indigo-50 rounded-lg p-3 text-center"><p class="text-xs text-indigo-600">总用户</p><p class="text-2xl font-bold text-indigo-700" id="statTotalUsers">-</p></div>
+                <div class="bg-red-50 rounded-lg p-3 text-center"><p class="text-xs text-red-600">已封禁</p><p class="text-2xl font-bold text-red-700" id="statBannedUsers">-</p></div>
+                <div class="bg-green-50 rounded-lg p-3 text-center"><p class="text-xs text-green-600">群组数</p><p class="text-2xl font-bold text-green-700" id="statTotalGroups">-</p></div>
+                <div class="bg-blue-50 rounded-lg p-3 text-center"><p class="text-xs text-blue-600">有效消息</p><p class="text-2xl font-bold text-blue-700" id="statTotalMessages">-</p></div>
+                <div class="bg-yellow-50 rounded-lg p-3 text-center"><p class="text-xs text-yellow-600">已撤回</p><p class="text-2xl font-bold text-yellow-700" id="statRecalledMessages">-</p></div>
+                <div class="bg-orange-50 rounded-lg p-3 text-center"><p class="text-xs text-orange-600">禁言中</p><p class="text-2xl font-bold text-orange-700" id="statMutedMembers">-</p></div>
+            </div>
+        </div>
+        <div id="adminTabUsers" class="flex-1 overflow-y-auto custom-scroll hidden">
+            <table class="w-full text-sm">
+                <thead class="bg-gray-50 sticky top-0"><tr>
+                    <th class="text-left p-3">用户名</th><th class="text-left p-3">角色</th><th class="text-left p-3">状态</th><th class="text-right p-3">操作</th>
+                </tr></thead>
+                <tbody id="adminUserList"></tbody>
+            </table>
+        </div>
+        <div id="adminTabGroups" class="flex-1 overflow-y-auto custom-scroll hidden">
+            <div class="mb-3 flex items-center justify-between">
+                <p class="text-sm text-gray-500">超管可跨群操作：踢人 / 禁言 / 清空 / 解散</p>
+                <button onclick="app.loadAdminGroups()" class="text-xs bg-indigo-100 text-indigo-600 px-3 py-1 rounded"><i class="fas fa-sync mr-1"></i>刷新</button>
+            </div>
+            <div id="adminGroupList" class="space-y-3"></div>
+        </div>
+    </div>
+</div>
+
+<div id="adminGroupActionModal" class="fixed inset-0 bg-black/30 backdrop-blur-sm z-[60] hidden flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 modal">
+        <h3 class="text-lg font-bold mb-4">管理群 <span id="adminGroupActionName" class="text-indigo-600"></span></h3>
+        <input type="text" id="adminGroupTargetUser" placeholder="目标用户名" class="w-full px-4 py-2 border rounded-lg text-sm mb-3 outline-none">
+        <div class="grid grid-cols-2 gap-2 mb-4">
+            <button onclick="app.adminGroupOp('kick')" class="px-4 py-2 bg-red-50 text-red-600 rounded-lg text-sm"><i class="fas fa-user-minus mr-1"></i>踢出</button>
+            <button onclick="app.adminGroupOp('mute')" class="px-4 py-2 bg-orange-50 text-orange-600 rounded-lg text-sm"><i class="fas fa-microphone-slash mr-1"></i>禁言5分钟</button>
+            <button onclick="app.adminGroupOp('clear')" class="px-4 py-2 bg-yellow-50 text-yellow-700 rounded-lg text-sm"><i class="fas fa-broom mr-1"></i>清空消息</button>
+            <button onclick="app.adminGroupOp('dismiss')" class="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm"><i class="fas fa-trash-alt mr-1"></i>解散群</button>
+        </div>
+        <div class="flex justify-end">
+            <button onclick="app.hideAdminGroupAction()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== 配置 ====================
+const API_BASE = 'https://你的域名/api.php';
+const WS_URL   = 'wss://你的域名/ws';
+
+// ==================== 应用 ====================
+class ChatApp {
+    constructor() {
+        this.token = localStorage.getItem('chat_token');
+        this.username = localStorage.getItem('chat_username');
+        this.isAdmin = localStorage.getItem('chat_is_admin') === 'true';
+        this.currentGroupId = localStorage.getItem('chat_group_id') || '1';
+        this.lastMessageId = 0;
+        this.groups = [];
+        this.currentGroup = null;
+        this.isGroupAdmin = false;
+        this.isMuted = false;
+        this.muteTarget = '';
+        this.renderedIds = new Set();
+        this.recalledIds = new Set();
+        this.currentTheme = localStorage.getItem('chat_theme') || 'light';
+        this.ws = null;
+        this.heartbeat = null;
+        this.loggingOut = false;
+        this.adminCurrentGroupId = '';
+
+        this.dom = {};
+        const ids = ['authModal','mainApp','loginForm','registerForm','chatContainer','messageForm','messageInput','sendBtn','groupList','memberList','memberCount','chatTitle','groupSubtitle','displayUsername','userAvatar','createGroupModal','manageMembersModal','settingsModal','allUsersModal','muteModal','adminPanelModal','adminGroupActionModal','pollingStatus','adminBadge','adminPanelBtn','clearMsgBtn','clearAllBtn','leaveGroupBtn','dismissGroupBtn','muteBadge','muteStatus','muteTargetName','adminGroupActionName'];
+        ids.forEach(id => this.dom[id] = document.getElementById(id));
+
+        if (this.token && this.username) this.initApp();
+        else this.dom.authModal.classList.remove('hidden');
+        this.bindEvents();
+    }
+
+    bindEvents() {
+        this.dom.loginForm.addEventListener('submit', e => { e.preventDefault(); this.login(); });
+        this.dom.registerForm.addEventListener('submit', e => { e.preventDefault(); this.register(); });
+        this.dom.messageForm.addEventListener('submit', e => { e.preventDefault(); this.sendMessage(); });
+        this.dom.messageInput.addEventListener('keydown', e => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); this.sendMessage(); }
+        });
+    }
+
+    async apiFetch(url, options = {}) {
+        const opts = { ...options };
+        opts.headers = { ...(opts.headers || {}) };
+        if (this.token) opts.headers['Authorization'] = `Bearer ${this.token}`;
+        const response = await fetch(url, opts);
+        if (response.status === 401) {
+            if (!this.loggingOut) {
+                this.loggingOut = true;
+                alert('登录已过期，请重新登录');
+                this.logout(true);
+            }
+            throw new Error('Unauthorized');
+        }
+        return response;
+    }
+
+    toggleAuthMode() {
+        this.dom.loginForm.classList.toggle('hidden');
+        this.dom.registerForm.classList.toggle('hidden');
+    }
+
+    async login() {
+        await this.authRequest('login', {
+            username: document.getElementById('loginUsername').value,
+            password: document.getElementById('loginPassword').value
+        });
+    }
+
+    async register() {
+        await this.authRequest('register', {
+            username: document.getElementById('regUsername').value,
+            password: document.getElementById('regPassword').value
+        });
+    }
+
+    async authRequest(action, data) {
+        try {
+            const response = await fetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action, ...data })
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                this.token = result.token;
+                this.username = result.username;
+                this.isAdmin = result.is_admin || false;
+                localStorage.setItem('chat_token', this.token);
+                localStorage.setItem('chat_username', this.username);
+                localStorage.setItem('chat_is_admin', this.isAdmin);
+                this.dom.authModal.classList.add('hidden');
+                this.initApp();
+            } else alert(result.message);
+        } catch (e) { alert('网络错误'); }
+    }
+
+    async initApp() {
+        this.dom.mainApp.classList.remove('hidden');
+        this.dom.displayUsername.textContent = this.username;
+        this.dom.userAvatar.textContent = this.username.charAt(0).toUpperCase();
+        if (this.isAdmin) {
+            this.dom.adminBadge.classList.remove('hidden');
+            this.dom.adminPanelBtn.classList.remove('hidden');
+        }
+        if (this.currentTheme === 'dark') document.body.classList.add('theme-dark');
+
+        await this.refreshGroupList();
+        this.renderGroups();
+        const currentExists = this.groups.some(g => g.id == this.currentGroupId);
+        if (!currentExists && this.groups.length > 0) {
+            this.currentGroupId = this.groups[0].id;
+            localStorage.setItem('chat_group_id', this.currentGroupId);
+        }
+        this.switchGroup(this.currentGroupId);
+    }
+
+    // ============ WebSocket ============
+    subscribeChannel(groupId) {
+        if (this.ws) {
+            try { this.ws.close(); } catch {}
+            if (this.heartbeat) clearInterval(this.heartbeat);
+        }
+
+        const wsUrl = `${WS_URL}?group_id=${groupId}`;
+        try {
+            this.ws = new WebSocket(wsUrl);
+
+            this.ws.onopen = () => {
+                this.ws.send(JSON.stringify({
+                    type: 'join',
+                    group_id: groupId,
+                    username: this.username
+                }));
+                this.dom.pollingStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-green-500 status-dot"></span> 已连接';
+                this.loadHistory();
+                this.heartbeat = setInterval(() => {
+                    if (this.ws && this.ws.readyState === 1) {
+                        this.ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 25000);
+            };
+
+            this.ws.onmessage = (e) => {
+                try {
+                    const data = JSON.parse(e.data);
+                    if (data.type === 'new-message') this.onRealtimeNewMessage(data);
+                    else if (data.type === 'message-recalled') this.onRealtimeRecall(data);
+                    else if (data.type === 'member-kicked') this.onRealtimeKick(data);
+                    else if (data.type === 'member-muted') this.onRealtimeMute(data);
+                    else if (data.type === 'messages-cleared') this.onRealtimeClear();
+                    else if (data.type === 'group-dismissed') this.onRealtimeDismiss(data);
+                } catch (err) {}
+            };
+
+            this.ws.onclose = () => {
+                if (this.heartbeat) clearInterval(this.heartbeat);
+                this.dom.pollingStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-orange-500"></span> 重连中';
+                setTimeout(() => {
+                    if (this.currentGroupId == groupId) this.subscribeChannel(groupId);
+                }, 3000);
+            };
+
+            this.ws.onerror = () => {};
+        } catch (e) {
+            console.warn('订阅失败', e);
+        }
+    }
+
+    onRealtimeNewMessage(data) {
+        if (data.username === this.username) return;
+        this.appendMessageToDOM({
+            id: data.id,
+            username: data.username,
+            content: data.content,
+            time: data.time,
+            isMe: false,
+            filtered: data.filtered
+        });
+        this.scrollToBottom();
+        if (data.id > this.lastMessageId) this.lastMessageId = data.id;
+    }
+
+    onRealtimeRecall(data) {
+        const el = document.querySelector(`[data-msg-id="${data.id}"]`);
+        if (el) {
+            const bubble = el.querySelector('.bubble-content');
+            if (bubble) {
+                bubble.innerHTML = '<span class="recalled-text">消息已被撤回</span>';
+                bubble.classList.remove('bg-indigo-600','text-white');
+                bubble.classList.add('bg-gray-100','text-gray-500');
+            }
+            const btn = el.querySelector('.recall-btn');
+            if (btn) btn.remove();
+        }
+        this.recalledIds.add(data.id);
+    }
+
+    onRealtimeKick(data) {
+        if (data.target === this.username) {
+            alert('您已被移出该群');
+            this.refreshGroupList().then(() => {
+                if (this.groups.length > 0) this.switchGroup(this.groups[0].id);
+                else this.switchGroup('1');
+            });
+        }
+    }
+
+    onRealtimeMute(data) {
+        if (data.target === this.username) {
+            const dur = data.duration >= 60 ? Math.round(data.duration/60) + '分钟' : data.duration + '秒';
+            alert(`您已被禁言 ${dur}`);
+        }
+        this.loadOnce();
+    }
+
+    onRealtimeClear() {
+        this.dom.chatContainer.innerHTML = '';
+        this.renderedIds = new Set();
+        this.lastMessageId = 0;
+    }
+
+    onRealtimeDismiss(data) {
+        if (data.group_id === this.currentGroupId) {
+            alert('该群已解散');
+            this.refreshGroupList().then(() => {
+                if (this.groups.length > 0) this.switchGroup(this.groups[0].id);
+                else this.switchGroup('1');
+            });
+        }
+    }
+
+    async loadHistory() {
+        try {
+            const params = new URLSearchParams({ action:'sync', group_id:this.currentGroupId, last_msg_id:0 });
+            const r = await this.apiFetch(`${API_BASE}?${params.toString()}`);
+            const data = await r.json();
+            if (data.status === 'success') {
+                this.isGroupAdmin = data.is_group_admin || false;
+                this.isAdmin = data.is_admin || this.isAdmin;
+                this.isMuted = data.is_muted || false;
+                if (this.isAdmin) {
+                    this.dom.adminBadge.classList.remove('hidden');
+                    this.dom.adminPanelBtn.classList.remove('hidden');
+                }
+                this.updateMuteStatus();
+                this.updateGroupActionButtons();
+                this.dom.chatContainer.innerHTML = '';
+                this.renderedIds = new Set();
+                this.recalledIds = new Set();
+                if (data.messages) {
+                    data.messages.forEach(m => this.appendMessageToDOM(m));
+                    if (data.messages.length > 0) this.lastMessageId = data.messages[data.messages.length - 1].id;
+                    this.scrollToBottom();
+                }
+                if (data.members) this.renderMembers(data.members);
+            }
+        } catch (e) { if (e.message !== 'Unauthorized') console.error(e); }
+    }
+
+    async loadOnce() {
+        try {
+            const params = new URLSearchParams({ action:'sync', group_id:this.currentGroupId, last_msg_id:this.lastMessageId });
+            const r = await this.apiFetch(`${API_BASE}?${params.toString()}`);
+            const data = await r.json();
+            if (data.status === 'success') {
+                this.isGroupAdmin = data.is_group_admin || false;
+                this.isAdmin = data.is_admin || this.isAdmin;
+                this.isMuted = data.is_muted || false;
+                this.updateMuteStatus();
+                this.updateGroupActionButtons();
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(m => this.appendMessageToDOM(m));
+                    this.lastMessageId = data.messages[data.messages.length - 1].id;
+                    this.scrollToBottom();
+                }
+                if (data.members) this.renderMembers(data.members);
+            }
+        } catch (e) { if (e.message !== 'Unauthorized') console.error(e); }
+    }
+
+    async refreshGroupList() {
+        try {
+            const r = await this.apiFetch(`${API_BASE}?action=get_my_groups`);
+            const d = await r.json();
+            if (d.status === 'success' && d.groups) {
+                const pub = { id:'1', name:'公共频道', my_role:'member', is_creator:false, is_official:true };
+                const hasPub = d.groups.some(g => g.id === '1');
+                this.groups = hasPub ? d.groups : [pub, ...d.groups];
+                const map = new Map();
+                this.groups.forEach(g => map.set(g.id, g));
+                this.groups = Array.from(map.values());
+                this.renderGroups();
+                return true;
+            }
+        } catch (e) { if (e.message !== 'Unauthorized') console.warn(e); }
+        return false;
+    }
+
+    logout(silent = false) {
+        if (!silent && !confirm('确定退出登录？')) return;
+        if (this.ws) { try { this.ws.close(); } catch {} }
+        if (this.heartbeat) clearInterval(this.heartbeat);
+        localStorage.clear();
+        location.reload();
+    }
+
+    updateMuteStatus() {
+        if (this.isMuted) {
+            this.dom.muteBadge.classList.remove('hidden');
+            this.dom.messageInput.disabled = true;
+            this.dom.messageInput.placeholder = '已被禁言';
+            this.dom.sendBtn.disabled = true;
+        } else {
+            this.dom.muteBadge.classList.add('hidden');
+            this.dom.messageInput.disabled = false;
+            this.dom.messageInput.placeholder = '输入消息...';
+            this.dom.sendBtn.disabled = false;
+        }
+    }
+
+    updateGroupActionButtons() {
+        const isPub = this.currentGroupId === '1';
+        const group = this.groups.find(g => g.id == this.currentGroupId);
+        const isCreator = group && group.is_creator;
+        this.dom.leaveGroupBtn.classList.toggle('hidden', isPub);
+        this.dom.dismissGroupBtn.classList.toggle('hidden', isPub || !(this.isAdmin || this.isGroupAdmin || isCreator));
+        this.dom.clearMsgBtn.classList.toggle('hidden', !(this.isAdmin || this.isGroupAdmin));
+        this.dom.clearAllBtn.classList.toggle('hidden', !this.isAdmin);
+    }
+
+    async sendMessage() {
+        const content = this.dom.messageInput.value.trim();
+        if (!content) return;
+        if (this.isMuted) { alert('您已被禁言'); return; }
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'send', group_id: this.currentGroupId, content })
+            });
+            const d = await r.json();
+            if (d.status === 'success') {
+                this.dom.messageInput.value = '';
+                if (d.warning) alert(d.warning);
+                this.appendMessageToDOM({
+                    id: d.id,
+                    username: this.username,
+                    content: content,
+                    time: new Date().toLocaleTimeString('zh-CN', {hour12:false}),
+                    isMe: true
+                });
+                if (d.id > this.lastMessageId) this.lastMessageId = d.id;
+                this.scrollToBottom();
+            } else alert(d.message);
+        } catch (e) { if (e.message !== 'Unauthorized') console.error(e); }
+    }
+
+    appendMessageToDOM(msg) {
+        if (this.renderedIds.has(msg.id)) return;
+        this.renderedIds.add(msg.id);
+
+        const div = document.createElement('div');
+        div.setAttribute('data-msg-id', msg.id);
+        div.className = `flex w-full message-enter ${msg.isMe ? 'justify-end' : 'justify-start'}`;
+        const isSystem = msg.username === 'System';
+        const isRecalled = msg.is_recalled || this.recalledIds.has(msg.id);
+
+        if (isSystem) {
+            div.innerHTML = `<div class="w-full flex justify-center"><div class="bg-yellow-50 text-yellow-700 border border-yellow-200 rounded-xl px-3 py-1 text-xs">${msg.content}</div></div>`;
+        } else {
+            const canRecall = !isRecalled && (
+                this.isAdmin || this.isGroupAdmin ||
+                (msg.isMe && (Date.now()/1000 - (msg.timestamp || Date.now()/1000)) < 120)
+            );
+            const bubbleColor = msg.isMe
+                ? 'bg-indigo-600 text-white rounded-tr-none'
+                : 'bg-white text-gray-800 border border-gray-100 rounded-tl-none shadow-sm';
+            const recalledClass = isRecalled ? 'bg-gray-100 text-gray-500' : bubbleColor;
+            div.innerHTML = `
+                <div class="max-w-[70%] flex flex-col ${msg.isMe ? 'items-end' : 'items-start'} msg-bubble relative">
+                    ${!msg.isMe ? `<span class="text-xs text-gray-500 mb-1 ml-1">${msg.username}</span>` : ''}
+                    <div class="${recalledClass} px-4 py-2 rounded-2xl break-words text-sm leading-relaxed bubble-content">
+                        ${isRecalled ? '<span class="recalled-text">消息已被撤回</span>' :
+                            (msg.content + (msg.filtered ? '<span class="text-[10px] text-yellow-300 block mt-1">⚠ 含敏感词</span>' : '') +
+                            `<span class="text-[10px] opacity-70 block text-right mt-1 ${msg.isMe ? 'text-indigo-100' : 'text-gray-400'}">${msg.time || ''}</span>`)}
+                    </div>
+                    ${canRecall ? `
+                        <button onclick="app.recallMessage(${msg.id})" class="recall-btn absolute -top-2 ${msg.isMe ? '-left-8' : '-right-8'} w-6 h-6 rounded-full bg-red-100 text-red-600 text-xs flex items-center justify-center" title="撤回">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+        this.dom.chatContainer.appendChild(div);
+    }
+
+    async recallMessage(msgId) {
+        if (!confirm('确定撤回这条消息吗？')) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'recall_message', msg_id: msgId })
+            });
+            const d = await r.json();
+            if (d.status === 'success') this.onRealtimeRecall({ id: msgId });
+            else alert(d.message);
+        } catch (e) { if (e.message !== 'Unauthorized') alert('网络错误'); }
+    }
+
+    renderGroups() {
+        this.dom.groupList.innerHTML = this.groups.map(g => {
+            const isActive = g.id == this.currentGroupId;
+            const roleIcon = g.my_role === 'admin' ? '<i class="fas fa-crown text-yellow-500 text-xs ml-1"></i>' : '';
+            return `
+                <li onclick="app.switchGroup('${g.id}')" class="group-item flex items-center justify-between p-3 rounded-lg cursor-pointer ${isActive ? 'bg-indigo-50 text-indigo-700' : 'hover:bg-gray-100 text-gray-700'}">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 flex-shrink-0"><i class="fas fa-hashtag"></i></div>
+                        <span class="font-medium truncate">${g.name}</span>
+                        ${roleIcon}
+                    </div>
+                </li>
+            `;
+        }).join('');
+    }
+
+    renderMembers(members) {
+        this.dom.memberList.innerHTML = members.map(m => {
+            const isMe = m.username === this.username;
+            const muted = (m.muted_until || 0) > Math.floor(Date.now()/1000);
+            const canManage = !isMe && m.username !== 'System' && (this.isAdmin || (this.isGroupAdmin && m.role !== 'admin'));
+            let actions = '';
+            if (canManage) {
+                if (muted) actions += `<button onclick="app.unmuteMember('${m.username}')" class="member-actions text-green-500 mr-1 text-xs"><i class="fas fa-microphone"></i></button>`;
+                else actions += `<button onclick="app.showMuteModal('${m.username}')" class="member-actions text-orange-500 mr-1 text-xs"><i class="fas fa-microphone-slash"></i></button>`;
+                actions += `<button onclick="app.kickMember('${m.username}')" class="member-actions text-red-400 text-xs"><i class="fas fa-user-minus"></i></button>`;
+            }
+            return `
+                <li class="member-item flex items-center justify-between p-2 rounded-lg hover:bg-gray-100">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <div class="w-8 h-8 rounded-full ${muted ? 'bg-red-100 text-red-600' : 'bg-gray-200 text-gray-600'} flex items-center justify-center text-xs font-bold flex-shrink-0">
+                            ${m.username.charAt(0).toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">${m.username}${isMe?' <span class="text-xs text-indigo-500">(我)</span>':''}${muted?' <i class="fas fa-microphone-slash text-red-500 text-xs"></i>':''}</p>
+                            <p class="text-xs text-gray-500">${m.role === 'admin' ? '<i class="fas fa-crown text-yellow-500 mr-1"></i>管理员' : '成员'}</p>
+                        </div>
+                    </div>
+                    <div>${actions}</div>
+                </li>
+            `;
+        }).join('');
+        this.dom.memberCount.textContent = members.length;
+    }
+
+    switchGroup(groupId) {
+        this.currentGroupId = groupId;
+        localStorage.setItem('chat_group_id', groupId);
+        const group = this.groups.find(g => g.id == groupId);
+        this.currentGroup = group;
+        this.dom.chatTitle.textContent = group ? group.name : '未知群组';
+        this.dom.groupSubtitle.textContent = groupId === '1' ? '公共频道' : '私有群组';
+        this.dom.chatContainer.innerHTML = '';
+        this.renderedIds = new Set();
+        this.recalledIds = new Set();
+        this.lastMessageId = 0;
+        this.renderGroups();
+        this.updateGroupActionButtons();
+        this.subscribeChannel(groupId);
+    }
+
+    showCreateGroupModal() { this.dom.createGroupModal.classList.remove('hidden'); }
+    hideCreateGroupModal() { this.dom.createGroupModal.classList.add('hidden'); }
+    showManageMembersModal() { this.dom.manageMembersModal.classList.remove('hidden'); }
+    hideManageMembersModal() { this.dom.manageMembersModal.classList.add('hidden'); }
+    hideSettingsModal() { this.dom.settingsModal.classList.add('hidden'); }
+    hideAllUsersModal() { this.dom.allUsersModal.classList.add('hidden'); }
+    hideMuteModal() { this.dom.muteModal.classList.add('hidden'); }
+    hideAdminPanel() { this.dom.adminPanelModal.classList.add('hidden'); }
+    hideAdminGroupAction() { this.dom.adminGroupActionModal.classList.add('hidden'); }
+
+    async showSettingsModal() {
+        try {
+            const r = await this.apiFetch(`${API_BASE}?action=get_preferences`);
+            const d = await r.json();
+            if (d.status === 'success') document.getElementById('prefAllowInvite').checked = d.preferences.allow_group_invite !== false;
+        } catch (e) {}
+        this.dom.settingsModal.classList.remove('hidden');
+    }
+
+    async showAllUsersModal() {
+        try {
+            const r = await this.apiFetch(`${API_BASE}?action=get_all_users`);
+            const d = await r.json();
+            if (d.status === 'success') {
+                document.getElementById('totalUsers').textContent = d.total;
+                document.getElementById('allUsersList').innerHTML = d.users.map(u => `
+                    <li class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-xs font-bold text-indigo-600">${u.username.charAt(0).toUpperCase()}</div>
+                            <div>
+                                <p class="text-sm font-medium">${u.username}
+                                    ${u.is_admin?'<span class="text-[10px] bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded ml-1 font-bold">超管</span>':''}
+                                    ${u.is_banned?'<span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded ml-1">已封禁</span>':''}
+                                </p>
+                                <p class="text-xs text-gray-500">注册于 ${new Date(u.created_at*1000).toLocaleDateString()}</p>
+                            </div>
+                        </div>
+                    </li>
+                `).join('');
+            }
+        } catch (e) {}
+        this.dom.allUsersModal.classList.remove('hidden');
+    }
+
+    async toggleInvitePref() {
+        const allow = document.getElementById('prefAllowInvite').checked;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'update_preferences', allow_group_invite: allow })
+            });
+            const d = await r.json();
+            if (d.status !== 'success') { alert(d.message); document.getElementById('prefAllowInvite').checked = !allow; }
+        } catch (e) {}
+    }
+
+    async changePassword() {
+        const o = document.getElementById('oldPassword').value;
+        const n = document.getElementById('newPassword').value;
+        const c = document.getElementById('confirmPassword').value;
+        if (!o || !n || !c) return alert('请填写所有密码');
+        if (n !== c) return alert('两次密码不一致');
+        if (n.length < 6) return alert('新密码至少6位');
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'change_password', old_password: o, new_password: n })
+            });
+            const d = await r.json();
+            if (d.status === 'success') { alert('密码修改成功，请重新登录'); this.logout(true); }
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    async deleteAccount() {
+        const p = document.getElementById('deletePassword').value;
+        if (!p) return alert('请输入密码');
+        if (!confirm('⚠️ 确定注销账户？不可恢复！')) return;
+        if (!confirm('最后确认：真的要注销吗？')) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete_account', password: p })
+            });
+            const d = await r.json();
+            if (d.status === 'success') { alert('账户已注销'); this.logout(true); }
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    showMuteModal(u) { this.muteTarget = u; this.dom.muteTargetName.textContent = u; this.dom.muteModal.classList.remove('hidden'); }
+
+    async doMute(duration) {
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'mute_member', group_id: this.currentGroupId, target_user: this.muteTarget, duration })
+            });
+            const d = await r.json();
+            if (d.status === 'success') { this.hideMuteModal(); this.loadOnce(); }
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    async unmuteMember(u) {
+        if (!confirm(`解除对 ${u} 的禁言？`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'unmute_member', group_id: this.currentGroupId, target_user: u })
+            });
+            const d = await r.json();
+            if (d.status === 'success') this.loadOnce();
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    async createGroup() {
+        const name = document.getElementById('newGroupName').value.trim();
+        if (!name) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'create_group', name })
+            });
+            const d = await r.json();
+            if (d.status === 'success') {
+                await this.refreshGroupList();
+                this.hideCreateGroupModal();
+                document.getElementById('newGroupName').value = '';
+                this.switchGroup(d.group_id);
+            } else alert(d.message);
+        } catch (e) {}
+    }
+
+    async inviteMember() {
+        const u = document.getElementById('inviteUserId').value.trim();
+        if (!u) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'invite_member', group_id: this.currentGroupId, target_user: u })
+            });
+            const d = await r.json();
+            if (d.status === 'success') { alert('邀请成功'); this.hideManageMembersModal(); document.getElementById('inviteUserId').value = ''; this.loadOnce(); }
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    async kickMember(u) {
+        if (!confirm(`确定踢出 ${u}？`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'kick_member', group_id: this.currentGroupId, target_user: u })
+            });
+            const d = await r.json();
+            if (d.status === 'success') this.loadOnce();
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    async leaveGroup() {
+        if (this.currentGroupId === '1') return;
+        const g = this.groups.find(g => g.id == this.currentGroupId);
+        if (!confirm(`确定退出「${g?g.name:'当前群'}」？`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'leave_group', group_id: this.currentGroupId })
+            });
+            const d = await r.json();
+            if (d.status === 'success') {
+                alert(d.message || '已退出');
+                await this.refreshGroupList();
+                if (this.groups.length > 0) this.switchGroup(this.groups[0].id);
+                else this.switchGroup('1');
+            } else alert(d.message);
+        } catch (e) {}
+    }
+
+    async dismissGroup() {
+        if (this.currentGroupId === '1') return;
+        const g = this.groups.find(g => g.id == this.currentGroupId);
+        if (!confirm(`确定解散「${g?g.name:'当前群'}」？不可恢复！`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'dismiss_group', group_id: this.currentGroupId })
+            });
+            const d = await r.json();
+            if (d.status === 'success') {
+                alert('群组已解散');
+                await this.refreshGroupList();
+                if (this.groups.length > 0) this.switchGroup(this.groups[0].id);
+                else this.switchGroup('1');
+            } else alert(d.message);
+        } catch (e) {}
+    }
+
+    async clearMessages() {
+        const g = this.groups.find(g => g.id == this.currentGroupId);
+        if (!confirm(`清空「${g?g.name:'当前群'}」聊天记录？`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'clear_messages', group_id: this.currentGroupId })
+            });
+            const d = await r.json();
+            if (d.status === 'success') {
+                this.dom.chatContainer.innerHTML = '';
+                this.renderedIds = new Set();
+                this.lastMessageId = 0;
+            } else alert(d.message);
+        } catch (e) {}
+    }
+
+    async clearAllData() {
+        if (!confirm('⚠️ 清空全部数据？所有群组、成员、消息都将被重置！')) return;
+        if (!confirm('最后确认：真的要清空吗？')) return;
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'clear_all_data' })
+            });
+            const d = await r.json();
+            if (d.status === 'success') { alert('全部数据已清空'); await this.refreshGroupList(); this.switchGroup('1'); }
+            else alert(d.message);
+        } catch (e) {}
+    }
+
+    showAdminPanel() {
+        if (!this.isAdmin) return;
+        this.dom.adminPanelModal.classList.remove('hidden');
+        this.switchAdminTab('stats');
+        this.loadAdminStats();
+    }
+
+    switchAdminTab(tab) {
+        document.querySelectorAll('.admin-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+        document.getElementById('adminTabStats').classList.toggle('hidden', tab !== 'stats');
+        document.getElementById('adminTabUsers').classList.toggle('hidden', tab !== 'users');
+        document.getElementById('adminTabGroups').classList.toggle('hidden', tab !== 'groups');
+        if (tab === 'stats') this.loadAdminStats();
+        if (tab === 'users') this.loadAdminUsers();
+        if (tab === 'groups') this.loadAdminGroups();
+    }
+
+    async loadAdminStats() {
+        try {
+            const r = await this.apiFetch(`${API_BASE}?action=get_admin_stats`);
+            const d = await r.json();
+            if (d.status === 'success') {
+                document.getElementById('statTotalUsers').textContent = d.stats.total_users;
+                document.getElementById('statBannedUsers').textContent = d.stats.banned_users;
+                document.getElementById('statTotalGroups').textContent = d.stats.total_groups;
+                document.getElementById('statTotalMessages').textContent = d.stats.total_messages;
+                document.getElementById('statRecalledMessages').textContent = d.stats.recalled_messages || 0;
+                document.getElementById('statMutedMembers').textContent = d.stats.muted_members;
+            }
+        } catch (e) {}
+    }
+
+    async loadAdminUsers() {
+        try {
+            const r = await this.apiFetch(`${API_BASE}?action=get_all_users`);
+            const d = await r.json();
+            if (d.status === 'success') {
+                document.getElementById('adminUserList').innerHTML = d.users.map(u => {
+                    const isMe = u.username === this.username;
+                    return `
+                        <tr class="border-b border-gray-100 hover:bg-gray-50">
+                            <td class="p-3 font-medium">${u.username}${isMe?' <span class="text-xs text-indigo-500">(我)</span>':''}</td>
+                            <td class="p-3">${u.is_admin ? '<span class="text-xs bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded font-bold">超管</span>' : '<span class="text-xs text-gray-500">普通</span>'}</td>
+                            <td class="p-3">${u.is_banned ? '<span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded">已封禁</span>' : '<span class="text-xs bg-green-100 text-green-600 px-2 py-0.5 rounded">正常</span>'}</td>
+                            <td class="p-3 text-right space-x-1">
+                                ${!u.is_admin && !isMe ? `
+                                    ${u.is_banned
+                                        ? `<button onclick="app.unbanUser('${u.username}')" class="text-xs bg-green-500 text-white px-2 py-1 rounded">解封</button>`
+                                        : `<button onclick="app.banUser('${u.username}')" class="text-xs bg-orange-500 text-white px-2 py-1 rounded">封号</button>`}
+                                    <button onclick="app.adminDeleteUser('${u.username}')" class="text-xs bg-red-500 text-white px-2 py-1 rounded">注销</button>
+                                ` : '<span class="text-xs text-gray-400">—</span>'}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        } catch (e) {}
+    }
+
+    async loadAdminGroups() {
+        try {
+            const r = await this.apiFetch(`${API_BASE}?action=admin_list_groups`);
+            const d = await r.json();
+            if (d.status === 'success') {
+                document.getElementById('adminGroupList').innerHTML = d.groups.map(g => `
+                    <div class="border border-gray-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <p class="font-medium">${g.name}
+                                    ${g.is_official ? '<span class="text-[10px] bg-yellow-400 text-yellow-900 px-1.5 py-0.5 rounded ml-1 font-bold">官方</span>' : ''}
+                                </p>
+                                <p class="text-xs text-gray-500">ID: ${g.id} · 创建者: ${g.creator || '-'} · 成员: ${g.member_count} · 消息: ${g.message_count}</p>
+                            </div>
+                            <button onclick="app.showAdminGroupAction('${g.id}', '${g.name}')" class="text-xs bg-indigo-100 text-indigo-600 px-3 py-1 rounded"><i class="fas fa-cog mr-1"></i>管理</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        } catch (e) {}
+    }
+
+    showAdminGroupAction(groupId, groupName) {
+        this.adminCurrentGroupId = groupId;
+        this.dom.adminGroupActionName.textContent = groupName;
+        document.getElementById('adminGroupTargetUser').value = '';
+        this.dom.adminGroupActionModal.classList.remove('hidden');
+    }
+
+    async adminGroupOp(op) {
+        const target = document.getElementById('adminGroupTargetUser').value.trim();
+        if ((op === 'kick' || op === 'mute') && !target) return alert('请输入目标用户名');
+        if ((op === 'kick' || op === 'mute') && target === this.username) return alert(op === 'kick' ? '不能踢出自己' : '不能禁言自己');
+        if (op === 'dismiss' && !confirm('⚠️ 确定解散该群？不可恢复！')) return;
+        if (op === 'clear' && !confirm('确定清空该群消息？')) return;
+
+        const body = { action: 'admin_manage_group', group_id: this.adminCurrentGroupId, op };
+        if (op === 'kick' || op === 'mute') body.target_user = target;
+        if (op === 'mute') body.duration = 300;
+
+        try {
+            const r = await this.apiFetch(API_BASE, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const d = await r.json();
+            alert(d.message);
+            if (d.status === 'success') {
+                this.hideAdminGroupAction();
+                this.loadAdminGroups();
+                this.loadAdminStats();
+                if (op === 'dismiss' && this.adminCurrentGroupId === this.currentGroupId) {
+                    await this.refreshGroupList();
+                    this.switchGroup(this.groups[0]?.id || '1');
+                }
+            }
+        } catch (e) {}
+    }
+
+    async banUser(t) {
+        if (!confirm(`封禁 ${t}？`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'ban_user', target_user: t }) });
+            const d = await r.json(); alert(d.message);
+            if (d.status === 'success') { this.loadAdminUsers(); this.loadAdminStats(); }
+        } catch (e) {}
+    }
+
+    async unbanUser(t) {
+        if (!confirm(`解封 ${t}？`)) return;
+        try {
+            const r = await this.apiFetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'unban_user', target_user: t }) });
+            const d = await r.json(); alert(d.message);
+            if (d.status === 'success') { this.loadAdminUsers(); this.loadAdminStats(); }
+        } catch (e) {}
+    }
+
+    async adminDeleteUser(t) {
+        if (!confirm(`⚠️ 强制注销 ${t}？所有数据永久删除！`)) return;
+        if (!confirm('最后确认？')) return;
+        try {
+            const r = await this.apiFetch(API_BASE, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'admin_delete_user', target_user: t }) });
+            const d = await r.json(); alert(d.message);
+            if (d.status === 'success') { this.loadAdminUsers(); this.loadAdminStats(); }
+        } catch (e) {}
+    }
+
+    toggleTheme() {
+        this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('chat_theme', this.currentTheme);
+        document.body.classList.toggle('theme-dark', this.currentTheme === 'dark');
+    }
+
+    scrollToBottom() { this.dom.chatContainer.scrollTop = this.dom.chatContainer.scrollHeight; }
+}
+
+window.app = new ChatApp();
+</script>
+</body>
+</html>

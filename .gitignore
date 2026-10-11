@@ -1,0 +1,60 @@
+# ==================== 配置文件====================
+config.php
+.env
+.env.local
+.env.*.local
+
+
+
+
+# ==================== 日志 ====================
+*.log
+logs/
+log/
+
+# ==================== 上传的文件 ====================
+uploads/
+upload/
+public/uploads/
+public/upload/
+
+# ==================== 系统文件 ====================
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ==================== IDE / 编辑器 ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+*.sublime-project
+*.sublime-workspace
+
+# ==================== 缓存和临时文件 ====================
+*.cache
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+
+
+
+# ==================== 其他 ====================
+# 数据库导出文件
+*.sql.gz
+*.sql.bak
+dump.sql
+vendor/
+# 私钥 / 证书
+*.pem
+*.key
+*.crt
+*.p12
